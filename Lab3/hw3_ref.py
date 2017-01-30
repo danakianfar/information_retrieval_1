@@ -222,7 +222,7 @@ class LambdaRankHW:
 
             avg_train_loss = np.mean(batch_train_losses)
 
-            # Calculates validation mNDCG
+            # Calculates mNDCG on validation set
             val_ndcgs = []
             queries = list(val_queries.values())
             for q in queries:
@@ -252,12 +252,16 @@ def experiment(n_epochs, measure_type, num_features, num_folds):
         print('\nLoading val queries')
         val_queries = query.load_queries(os.path.normpath('./HP2003/Fold%d/vali.txt' % fold), num_features)
 
-        # Creates a new ra
+        # Creates a new ranker
         ranker = LambdaRankHW(num_features, measure_type)
 
+        # Stores the statistics for each epoch
         res = ranker.train_with_queries(train_queries, n_epochs, val_queries)
+
+        # Saves the trained ranker
         res.append(ranker)
 
+        # Stores the results for the current fold
         store_res[fold] = res
 
     return store_res
