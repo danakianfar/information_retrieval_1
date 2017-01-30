@@ -223,7 +223,7 @@ def experiment(experiment_type):
     kfold_ndcg = []
     for i in range(1, 6):
         ranker = LambdaRankHW(n_features, experiment_type)#, type=experiment_type)
-        n_epochs = 5
+        n_epochs = 2
 
         def query_ndcg(q):
             scores = ranker.score(q).flatten()
@@ -235,6 +235,9 @@ def experiment(experiment_type):
                 continue
             start_time = time.time()
             queries = query.load_queries(os.path.normpath('./HP2003/Fold%d/train.txt' % j), n_features)
+
+            print(queries)
+
             ranker.train_with_queries(queries, n_epochs)
             print('Elapsed time', time.time() - start_time)
 
@@ -249,4 +252,4 @@ import sys
 
 if __name__ == '__main__':
     # sys.argv[1] can be 'pointwise', 'pairwise' or 'listwise'
-    experiment(POINTWISE)
+   experiment(POINTWISE)
