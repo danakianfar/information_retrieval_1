@@ -9,6 +9,7 @@ import time
 from itertools import count
 import query
 import os
+from scipy.sparse import dok_matrix
 
 NUM_EPOCHS = 500
 
@@ -241,6 +242,24 @@ class LambdaRankHW:
                 'val_mndcg': val_mndcg
             }
 
+
+def create_S_matrix(queries):
+    S_dict = {}
+
+    for query in queries.values():
+        num_labels = query.get_document_count()
+        S = dok_matrix((num_labels, num_labels), dtype=np.float32)
+        labels = np.array(query.get_labels())
+        ones_idx = np.where(labels == 1)
+        nonones_idx = np.where(labels != 1)
+
+        for i in ones_idx:
+            for j in nonones_idx:
+                S[i, j] = 1
+        S_dict[query.get_qid()] = S
+
+    return S_dict
+
 def experiment(n_epochs, measure_type, num_features, num_folds):
 
     store_res = {}
@@ -252,7 +271,10 @@ def experiment(n_epochs, measure_type, num_features, num_folds):
         print('\nLoading val queries')
         val_queries = query.load_queries(os.path.normpath('./HP2003/Fold%d/vali.txt' % fold), num_features)
 
-        # Creates a new ra
+        print('Creating the S Matrix...')
+        S = create_S_matrix({**train_queries, **val_queries})
+
+        # Creates a new ranker
         ranker = LambdaRankHW(num_features, measure_type)
 
         res = ranker.train_with_queries(train_queries, n_epochs, val_queries)
@@ -262,6 +284,8 @@ def experiment(n_epochs, measure_type, num_features, num_folds):
 
     return store_res
     #test_queries = query.load_queries(os.path.normpath('./HP2003/Fold%d/test.txt' % fold), num_features)
+
+## Run
 
 n_epochs = 5
 measure_type = POINTWISE
