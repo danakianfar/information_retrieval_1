@@ -30,35 +30,36 @@ class SimpleBufferedLineReader:
     """Read lines from a file, but keep a short buffer to allow rewinds"""
 
     __prev__ = None
-    __next__ = None
+    __nextl_ = None
     __fh__ = None
 
     def __init__(self, fh):
         self.__fh__ = fh
 
     def has_next(self):
-        if self.__next__ == None:  # not set
-            self.__next__ = self.__fh__.readline()
-        if len(self.__next__) < 1:  # empty string - EOF
+        if self.__nextl_ == None:  # not set
+            self.__nextl_ = self.__fh__.readline()
+        if len(self.__nextl_) < 1:  # empty string - EOF
             return False
         return True
 
     def __iter__(self):
         return self
 
-
     def next(self):
-        if self.__next__ == None:  # not set
-            self.__next__ = self.__fh__.readline()
-        if len(self.__next__) < 1:  # empty string - EOF
+        if self.__nextl_ == None:  # not set
+            self.__nextl_ = self.__fh__.readline()
+        if len(self.__nextl_) < 1:  # empty string - EOF
             raise StopIteration
-        self.__prev__ = self.__next__
-        self.__next__ = None
+        self.__prev__ = self.__nextl_
+        self.__nextl_ = None
         return self.__prev__
+
+    __next__ = next
 
     def rewind(self):
         if self.__prev__:
-            self.__next__ = self.__prev__
+            self.__nextl_ = self.__prev__
             self.__prev__ = None
 
 
@@ -72,18 +73,18 @@ class Query:
     # retrieve labels, predictions, and feature vectors
     __docids__ = None
     __ideal__ = None
-    
+
     def __hash__(self):
         return self.__qid__.__hash__()
-    
+
     def __eq__(self, other):
         return (isinstance(other, self.__class__)
-            and self.__qid__ == other.__qid__)
+                and self.__qid__ == other.__qid__)
 
     def __init__(self, qid, feature_vectors, labels=None, comments=None):
         self.__qid__ = qid
         self.__feature_vectors__ = feature_vectors
-        self.__labels__ = np.asarray(labels,dtype="float32")
+        self.__labels__ = np.asarray(labels, dtype="float32")
         self.__docids__ = [Document(x) for x in range(len(labels))]
         self.__comments__ = comments
 
@@ -122,7 +123,7 @@ class Query:
 
     def get_label(self, docid):
         return self.__labels__[docid.get_id()]
-    
+
     def get_labelById(self, docid):
         return self.__labels__[docid]
 
@@ -151,10 +152,10 @@ class Query:
     def write_to(self, fh, sparse=False):
         for doc in self.__docids__:
             features = [':'.join((repr(pos + 1),
-                repr(value))) for pos, value in enumerate(
+                                  repr(value))) for pos, value in enumerate(
                 self.get_feature_vector(doc)) if not (value == 0 and sparse)]
             print >> fh, self.get_label(doc), ':'.join(("qid",
-                self.get_qid())), ' '.join(features),
+                                                        self.get_qid())), ' '.join(features),
             comment = self.get_comment(doc)
             if comment:
                 print >> fh, comment
@@ -172,6 +173,7 @@ class QueryStream:
         self.__num_features__ = num_features
         self.__preserve_comments__ = preserve_comments
         self.__fh__ = fh
+
     def __iter__(self):
         return self
 
@@ -225,7 +227,7 @@ class QueryStream:
                 tmp_array[0, int(k) - 1] = float(v)
             if not initialized:
                 instances = tmp_array
-                targets = np.array([target],dtype="float32")
+                targets = np.array([target], dtype="float32")
                 if self.__preserve_comments__:
                     comments = [comment]
                 initialized = True
@@ -240,13 +242,15 @@ class QueryStream:
         else:
             return Query(prev, instances, targets, comments)
 
+    __next__ = next  # Python 3.X compatibility
+
     # read all queries from a file at once
     def read_all(self):
         queries = {}
         index = 0
         for query in self:
             if index % 100 == 0:
-                print "loaded ",index
+                print("loaded ", index)
             index += 1
             queries[query.get_qid()] = query
         return queries
@@ -265,11 +269,11 @@ class Queries:
 
     def __init__(self, fh, num_features, preserve_comments=False):
         self.__queries__ = QueryStream(fh, num_features,
-            preserve_comments).read_all()
+                                       preserve_comments).read_all()
         self.__num_features__ = num_features
 
     def __iter__(self):
-        return iter(self.__queries__.itervalues())
+        return iter(list(self.__queries__.values()))
 
     def __getitem__(self, index):
         return self.get_query(index)
@@ -299,7 +303,7 @@ class Queries:
     def get_feature_vectors(self):
         if not self.__feature_vectors__:
             self.__feature_vectors__ = [query.get_feature_vectors()
-                for query in self]
+                                        for query in self]
         return self.__feature_vectors__
 
     def set_predictions(self):
@@ -329,5 +333,5 @@ def load_queries(filename, features, preserve_comments=False):
     gc.enable()
     fh.close()
     # cPickle.dump(queries, open( filename + "_pickle", "w" ))
-    print "loaded queries from file"
+    print("loaded queries from file")
     return queries
