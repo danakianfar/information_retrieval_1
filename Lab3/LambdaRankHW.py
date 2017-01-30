@@ -8,6 +8,9 @@ import lasagne
 import time
 from itertools import count
 import query
+from operator import itemgetter
+import os
+import time
 
 NUM_EPOCHS = 500
 
@@ -209,13 +212,8 @@ class LambdaRankHW:
             yield {
                 'number': epoch,
                 'train_loss': avg_train_loss,
-<<<<<<< HEAD
             }
 
-
-from operator import itemgetter
-import os
-import time
 
 def experiment(experiment_type):
     print('- Running', experiment_type)
