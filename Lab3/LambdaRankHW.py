@@ -187,6 +187,3 @@ class LambdaRankHW:
                 'number': epoch,
                 'train_loss': avg_train_loss,
             }
-
-
-

@@ -189,3 +189,13 @@ class LambdaRankHW:
             }
 
 
+fold_num = 1
+
+print("Running PW Experiment on Fold %d" % fold_num)
+n_features = 64
+# Implements 5-Folds validation
+ranker = LambdaRankHW(n_features)
+n_epochs = 5
+
+queries = query.load_queries('HP2003/Fold%d/train.txt' % fold_num, n_features)
+ranker.train_with_queries(queries, n_epochs)
