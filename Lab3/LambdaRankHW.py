@@ -67,8 +67,13 @@ def ndcg(rank, k, r = 1):
 
 # Calculates the delta on the NDCG@1000 when documents at positions i and j are swapped
 # id_i is the index in the labels list of the document in position i in the rank, sim. for id_j
-def delta_ndcdg(i, j, id_i, id_j, labels):
-    return (2**labels[id_i] - 2**labels[id_j]) * (disc_list[j] - disc_list[i]) / norm_list[int(np.sum(labels))-1]
+def delta_ndcdg(i, j, id_i, id_j, labels, sum_labels):
+    # return (2**labels[id_i] - 2**labels[id_j]) * (disc_list[j] - disc_list[i]) / norm_list[sum_labels-1]
+
+    if not labels[id_j]: # label of j is 1, there's no change in ndcg
+        return 0
+    return (disc_list[j] - disc_list[i]) / norm_list[sum_labels - 1]
+
 
 # TODO: Implement the lambda loss function
 def lambda_loss(output, lambdas):
@@ -83,6 +88,7 @@ class LambdaRankHW:
         self.measure_type = measure_type
         self.output_layer = self.build_model(feature_count,1,BATCH_SIZE)
         self.iter_funcs = self.create_functions(self.output_layer)
+        self.lambda_counter = 0
 
     # train_queries are what load_queries returns - implemented in query.py
     def train_with_queries(self, train_queries, num_epochs, val_queries, S):
@@ -96,7 +102,7 @@ class LambdaRankHW:
                     epoch['number'], num_epochs, time.time() - now))
                     print("training loss:\t\t{:.6f}".format(epoch['train_loss']))
                     print("training mNDCG:\t\t{:.6f}".format(epoch['train_mndcg']))
-                    # print("training naive mNDCG:\t\t{:.6f}".format(epoch['Naive Train MNDCG']))
+                    print("Lambda Count %d"% self.lambda_counter)
                     print("validation mNDCG:\t\t{:.6f}\n".format(epoch['val_mndcg']))
                     now = time.time()
                 if epoch['number'] >= num_epochs:
@@ -203,25 +209,18 @@ class LambdaRankHW:
         )
 
     # TODO: Implement the aggregate (i.e. per document) lambda function
+
     def lambda_function(self, labels, scores, S):
         lambda_vec = np.zeros((len(labels),1), dtype=np.float32)
         order = np.argsort(-scores)
+        rank_dict = {doc_id:rank for rank, doc_id in enumerate(order)}
+        num_rel_docs = int(sum(labels))
         for ((w,l),_) in S.items():
-            lambda_wl = - expit( scores[l] - scores[w])
+            lambda_wl = - expit(scores[l] - scores[w])
             if self.measure_type == LISTWISE:
-                delta_val = np.abs(delta_ndcdg(np.where(order == w)[0][0], np.where(order == l)[0][0], w, l, labels))
+                self.lambda_counter +=1
+                lambda_wl *= np.abs(delta_ndcdg(rank_dict[w], rank_dict[l], w, l, labels, num_rel_docs))
 
-                # Sanity check
-                # r1 = np.array(labels)[order]
-                # r2 = np.array(labels)[order]
-                # aux = r2[np.where(order == w)[0][0]]
-                # r2[np.where(order == w)[0][0]] = r2[np.where(order == l)[0][0]]
-                # r2[np.where(order == l)[0][0]] = aux
-                # diff = np.abs(ndcg(r2, len(labels), sum(labels)) - ndcg(r1,len(labels),sum(labels)))
-                # # if (diff != delta_val):
-                #     print(delta_val, diff)
-
-                lambda_wl *= delta_val
             lambda_vec[w,0] += lambda_wl
             lambda_vec[l,0] -= lambda_wl
         return lambda_vec
@@ -298,7 +297,6 @@ class LambdaRankHW:
                 'train_loss': avg_train_loss,
                 'val_mndcg': val_mndcg,
                 'train_mndcg': train_mndcg,
-                # 'Naive Train MNDCG': naive_train_mndcg
             }
 
 
@@ -364,7 +362,7 @@ def experiment(n_epochs, measure_type, num_features, num_folds):
 
 ## Run
 if __name__ == '__main__':
-    n_epochs = 30
+    n_epochs = 10
     measure_type = LISTWISE
     num_features = 64
     num_folds = 1
