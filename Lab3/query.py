@@ -249,8 +249,8 @@ class QueryStream:
         queries = {}
         index = 0
         for query in self:
-            if index % 100 == 0:
-                print("loaded ", index)
+            #if index % 100 == 0:
+                #print("loaded ", index)
             index += 1
             queries[query.get_qid()] = query
         return queries
@@ -333,5 +333,5 @@ def load_queries(filename, features, preserve_comments=False):
     gc.enable()
     fh.close()
     # cPickle.dump(queries, open( filename + "_pickle", "w" ))
-    print("loaded queries from file")
+    #print("loaded queries from file")
     return queries
