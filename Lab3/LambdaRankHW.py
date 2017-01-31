@@ -51,7 +51,7 @@ def best_ndcg(r, k):
     if r == 0:
         raise ZeroDivisionError("No relevant documents for given query. NDCG can not be computed.")
     sum_limit = min(r, k)
-    b_rank = 1 / np.log(1 + np.array(range(1, sum_limit + 1)))
+    b_rank = 1 / np.log2(1 + np.array(range(1, sum_limit + 1)))
     return b_rank, np.cumsum(b_rank, axis=0)
 
 # Store the logarithmic discount and normalization factor lists for faster NDCG computation
@@ -211,14 +211,15 @@ class LambdaRankHW:
             if self.measure_type == LISTWISE:
                 delta_val = np.abs(delta_ndcdg(np.where(order == w)[0][0], np.where(order == l)[0][0], w, l, labels))
 
-                r1 = np.array(labels)[order]
-                r2 = np.array(labels)[order]
-                aux = r2[np.where(order == w)[0][0]]
-                r2[np.where(order == w)[0][0]] = r2[np.where(order == l)[0][0]]
-                r2[np.where(order == l)[0][0]] = aux
-                diff = np.abs(ndcg(r2, len(labels), sum(labels) - ndcg(r1,len(labels),sum(labels))))
-                if (diff != delta_val):
-                    print(delta_val, diff)
+                # Sanity check
+                # r1 = np.array(labels)[order]
+                # r2 = np.array(labels)[order]
+                # aux = r2[np.where(order == w)[0][0]]
+                # r2[np.where(order == w)[0][0]] = r2[np.where(order == l)[0][0]]
+                # r2[np.where(order == l)[0][0]] = aux
+                # diff = np.abs(ndcg(r2, len(labels), sum(labels)) - ndcg(r1,len(labels),sum(labels)))
+                # # if (diff != delta_val):
+                #     print(delta_val, diff)
 
                 lambda_wl *= delta_val
             lambda_vec[w,0] += lambda_wl
@@ -352,10 +353,10 @@ def experiment(n_epochs, measure_type, num_features, num_folds):
 
 ## Run
 if __name__ == '__main__':
-    n_epochs = 1
+    n_epochs = 30
     measure_type = LISTWISE
     num_features = 64
-    num_folds = 2
+    num_folds = 1
 
     res = experiment(n_epochs, measure_type, num_features, num_folds)
     ndcgs = [[rr['val_mndcg'] for rr in res[i][:-1]] for i in res]  # fold 1
