@@ -44,7 +44,7 @@ disc_list = disc_list#.reshape((-1,1))
 
 # Calculates the NDCG@k for a rank with binary relevance labels assuming a query with r relevant documents
 def ndcg(rank, k, r = 1):
-    return np.transpose(rank[:k]).dot(disc_list[:k+1]) / norm_list[r-1]
+    return np.transpose(rank[:k]).dot(disc_list[:k]) / norm_list[r-1]
 
 # Calculates the delta on the NDCG@1000 when documents at positions i and j are swapped
 # id_i is the index in the labels list of the document in position i in the rank, sim. for id_j
@@ -61,16 +61,17 @@ class LambdaRankHW:
 
     def __init__(self, feature_count, measure_type = POINTWISE):
         self.feature_count = feature_count
+        self.measure_type = measure_type
         self.output_layer = self.build_model(feature_count,1,BATCH_SIZE)
         self.iter_funcs = self.create_functions(self.output_layer)
-        self.measure_type = measure_type
+
 
     # train_queries are what load_queries returns - implemented in query.py
     def train_with_queries(self, train_queries, num_epochs, val_queries, S):
         res = []
         try:
             now = time.time()
-            for epoch in self.train(train_queries, val_queries):
+            for epoch in self.train(train_queries, val_queries, S):
                 res.append(epoch)
                 if epoch['number'] % 50 == 0:
                     print("Epoch {} of {} took {:.3f}s".format(
@@ -184,14 +185,14 @@ class LambdaRankHW:
 
     # TODO: Implement the aggregate (i.e. per document) lambda function
     def lambda_function(self, labels, scores, S):
-        lambda_vec = np.zeros((len(labels),1))
+        lambda_vec = np.zeros((len(labels),1), dtype=np.float32)
         order = np.argsort(-scores)
         for ((w,l),_) in S.items():
             lambda_wl = - expit( scores[l] - scores[w])
             if self.measure_type == LISTWISE:
                 lambda_wl *= delta_ndcdg(np.where(order == w)[0][0], np.where(order == l)[0][0], w, l, labels)
-            lambda_vec[w,1] += lambda_wl
-            lambda_vec[l,1] -= lambda_wl
+            lambda_vec[w,0] += lambda_wl
+            lambda_vec[l,0] -= lambda_wl
         return lambda_vec
 
 
@@ -310,8 +311,8 @@ def experiment(n_epochs, measure_type, num_features, num_folds):
 
 ## Run
 if __name__ == '__main__':
-    n_epochs = 500
-    measure_type = POINTWISE
+    n_epochs = 200
+    measure_type = PAIRWISE
     num_features = 64
     num_folds = 2
 
