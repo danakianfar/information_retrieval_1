@@ -13,7 +13,8 @@ from scipy.sparse import dok_matrix
 from scipy.special import expit
 import matplotlib.pyplot as plt
 import pandas as pd
-
+import seaborn as sns
+import pickle
 
 NUM_EPOCHS = 500
 
@@ -51,12 +52,17 @@ def ndcg(rank, k, r = 1):
 
 # Calculates the delta on the NDCG@1000 when documents at positions i and j are swapped
 # id_i is the index in the labels list of the document in position i in the rank, sim. for id_j
-def delta_ndcdg(i, j, id_i, id_j, labels):
-    return (2**labels[id_i] - 2**labels[id_j]) * (disc_list[j] - disc_list[i]) / norm_list[int(np.sum(labels))-1]
+def delta_ndcdg(i, j, id_i, id_j, labels, sum_labels):
+    # return (2**labels[id_i] - 2**labels[id_j]) * (disc_list[j] - disc_list[i]) / norm_list[sum_labels-1]
+
+    if labels[id_j]: # label of j is 1, there's no change in ndcg
+        return 0
+    return (disc_list[j] - disc_list[i]) / norm_list[sum_labels - 1]
+
 
 # TODO: Implement the lambda loss function
 def lambda_loss(output, lambdas):
-    return T.dot(lambdas,output.T)
+    return T.dot(lambdas, output.T)
 
 class LambdaRankHW:
 
@@ -67,6 +73,9 @@ class LambdaRankHW:
         self.measure_type = measure_type
         self.output_layer = self.build_model(feature_count,1,BATCH_SIZE)
         self.iter_funcs = self.create_functions(self.output_layer)
+        self.lambda_counter = 0
+
+
 
     # train_queries are what load_queries returns - implemented in query.py
     def train_with_queries(self, train_queries, num_epochs, val_queries, S):
@@ -75,12 +84,12 @@ class LambdaRankHW:
             now = time.time()
             for epoch in self.train(train_queries, val_queries, S):
                 res.append(epoch)
-                if epoch['number'] % 10 == 0 or epoch['number'] == 1:
+                if epoch['number'] % 100 == 0 or epoch['number'] == 1:
                     print("Epoch {} of {} took {:.3f}s".format(
                     epoch['number'], num_epochs, time.time() - now))
                     print("training loss:\t\t{:.6f}".format(epoch['train_loss']))
                     print("training mNDCG:\t\t{:.6f}".format(epoch['train_mndcg']))
-                    # print("training naive mNDCG:\t\t{:.6f}".format(epoch['Naive Train MNDCG']))
+                    print("Lambda Count %d"% self.lambda_counter)
                     print("validation mNDCG:\t\t{:.6f}\n".format(epoch['val_mndcg']))
                     now = time.time()
                 if epoch['number'] >= num_epochs:
@@ -187,15 +196,17 @@ class LambdaRankHW:
         )
 
     # TODO: Implement the aggregate (i.e. per document) lambda function
+
     def lambda_function(self, labels, scores, S):
         lambda_vec = np.zeros((len(labels),1), dtype=np.float32)
         order = np.argsort(-scores)
-
+        rank_dict = {doc_id:rank for rank, doc_id in enumerate(order)}
+        num_rel_docs = int(sum(labels))
         for ((w,l),_) in S.items():
-            lambda_wl = - expit( scores[l] - scores[w])
+            lambda_wl = - expit(scores[l] - scores[w])
+            self.lambda_counter += 1
             if self.measure_type == LISTWISE:
-                delta_val = np.abs(delta_ndcdg(np.where(order == w)[0][0], np.where(order == l)[0][0], w, l, labels))
-                lambda_wl *= delta_val
+                lambda_wl *= np.abs(delta_ndcdg(rank_dict[w], rank_dict[l], w, l, labels, num_rel_docs))
             lambda_vec[w,0] += lambda_wl
             lambda_vec[l,0] -= lambda_wl
         return lambda_vec
@@ -272,9 +283,20 @@ class LambdaRankHW:
                 'train_loss': avg_train_loss,
                 'val_mndcg': val_mndcg,
                 'train_mndcg': train_mndcg,
-                # 'Naive Train MNDCG': naive_train_mndcg
             }
 
+
+def report_test_ndcg(ranker, test_queries):
+   # Calculate NDCG on training set
+    results = {}
+    for q in test_queries.values():
+        labels = np.array(q.get_labels())
+        q_scores = -ranker.score(q).flatten()
+        sort_idx = np.argsort(q_scores)
+        rank = labels[sort_idx]
+        ndcg_score = ndcg(rank, ndcg_k, int(np.sum(labels)))
+        results[q.get_qid()] = ndcg_score
+    return results
 
 def create_S_matrix(queries):
     S_dict = {}
@@ -297,7 +319,9 @@ def create_S_matrix(queries):
 
 def experiment(n_epochs, measure_type, num_features, num_folds):
 
-    store_res = {}
+    best_ranker = None
+    best_val_score = 0
+    store_res = []
     for fold in range(1,num_folds + 1):
 
         # Load queries from the corresponding fold
@@ -315,27 +339,88 @@ def experiment(n_epochs, measure_type, num_features, num_folds):
 
         # Stores the statistics for each epoch
         res = ranker.train_with_queries(train_queries, n_epochs, val_queries, S)
-
-        # Saves the trained ranker
-        res.append(ranker)
+        final_val_score = res[-1]['val_mndcg']
+        if final_val_score > best_val_score:
+            best_ranker = ranker
+            best_val_score = final_val_score
 
         # Stores the results for the current fold
-        store_res[fold] = res
+        store_res.append(res)
 
-    return store_res
+    return store_res, ranker
     #test_queries = query.load_queries(os.path.normpath('./HP2003/Fold%d/test.txt' % fold), num_features)
 
 ## Run
 if __name__ == '__main__':
-    n_epochs = 2
-    measure_type = LISTWISE
+
+    n_epochs = 200
+    measure_type = POINTWISE
     num_features = 64
-    num_folds = 2
+    num_folds = 5
 
-    res = experiment(n_epochs, measure_type, num_features, num_folds)
-    ndcgs = [[rr['val_mndcg'] for rr in res[i][:-1]] for i in res]  # fold 1
+    results, best_ranker = experiment(n_epochs, measure_type, num_features, num_folds)
 
-    df = pd.DataFrame(ndcgs, index=['Fold%d' % d for d in range(1, num_folds + 1)]).T
-    plt.plot(df)
-    plt.legend(df.columns)
+    print('Loading all test queries')
+    test_queries = {}
+    for fold in range(1,6):
+        test_queries = {**test_queries, **query.load_queries(os.path.normpath('./HP2003/Fold%d/test.txt' % fold), num_features)}
+
+    print('Running test mndcg')
+    test_results= report_test_ndcg(ranker, test_queries)
+    print('Test mNDCG: %s' % sum(list(test_results.values()))/len(test_queries))
+
+    with open('results_%s_epochs%s_kfold%s' % (measure_type, n_epochs, num_folds), 'rb') as f:
+        pickle.dump(results, f)
+        pickle.dump(test_results,f)
+        pickle.dump(best_ranker, f)
+
+
+    # Plot
+
+    data = []
+
+    for fold in range(1,len(res)+1):
+        for e_num in range(n_epochs):
+            for measure in ['train_loss', 'train_mndcg', 'val_mndcg']:
+                epoch_dict = res[fold][e_num]
+                aux = [e_num + 1, fold, measure, epoch_dict[measure]]
+                data.append(aux)
+
+    df = pd.DataFrame(data, columns=['Epoch', 'Fold', 'Measure', 'Value'])
+
+    sns.set_context("notebook", font_scale=1.5, rc={"lines.linewidth": 1})
+    for measure in ['train_loss', 'train_mndcg', 'val_mndcg']:
+        ax = sns.pointplot(x="Epoch", y="Value", hue="Fold", data=df.loc[df['Measure'] == measure], ci=None)
+        ax.set(ylabel=measure)
+        plt.show()
+
+    sns.pointplot(x="Epoch", y="Value", hue='Measure',
+                  data=df.loc[df['Measure'].isin(['train_mndcg', 'val_mndcg'])], ci=95)
     plt.show()
+
+    #ndcgs = [[rr['val_mndcg'] for rr in res[i][:-1]] for i in res]  # fold 1
+
+    # df = pd.DataFrame(ndcgs, index=['Fold%d' % d for d in range(1, num_folds + 1)]).T
+    # plt.plot(df)
+    # plt.legend(df.columns)
+    # plt.show()
+
+    # data = []
+    #
+    # for fold in res:
+    #     for e_num in range(n_epochs):
+    #         for measure in ['train_loss', 'train_mndcg', 'val_mndcg']:
+    #             epoch_dict = res[fold][e_num]
+    #             aux = [e_num + 1, fold, measure, epoch_dict[measure]]
+    #             data.append(aux)
+    #
+    # df = pd.DataFrame(data, columns=['Epoch', 'Fold', 'Measure', 'Value'])
+    #
+    # for measure in ['train_loss', 'train_mndcg', 'val_mndcg']:
+    #     ax = sns.lmplot(x="Epoch", y="Value", hue="Fold", data=df.loc[df['Measure'] == measure], ci=None)
+    #     ax.set(ylabel=measure)
+    #     plt.show()
+    #
+    # sns.lmplot(x="Epoch", y="Value", hue='Measure',
+    #            data=df.loc[df['Measure'].isin(['train_mndcg', 'val_mndcg'])])  # , ci = None)
+    # plt.show()
