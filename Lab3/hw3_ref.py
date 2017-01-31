@@ -11,6 +11,9 @@ import query
 import os
 from scipy.sparse import dok_matrix
 from scipy.special import expit
+import matplotlib.pyplot as plt
+import pandas as pd
+
 
 NUM_EPOCHS = 500
 
@@ -67,14 +70,14 @@ class LambdaRankHW:
         res = []
         try:
             now = time.time()
-            for epoch in self.train(train_queries, val_queries, S):
-                if epoch['number'] % 1 == 0:
+            for epoch in self.train(train_queries, val_queries):
+                res.append(epoch)
+                if epoch['number'] % 50 == 0:
                     print("Epoch {} of {} took {:.3f}s".format(
                     epoch['number'], num_epochs, time.time() - now))
                     print("training loss:\t\t{:.6f}".format(epoch['train_loss']))
                     print("val mNDCG:\t\t{:.6f}\n".format(epoch['val_mndcg']))
                     now = time.time()
-                    res.append(epoch)
                 if epoch['number'] >= num_epochs:
                     break
         except KeyboardInterrupt:
@@ -264,11 +267,14 @@ def create_S_matrix(queries):
         num_labels = query.get_document_count()
         S = dok_matrix((num_labels, num_labels), dtype=np.float32)
         labels = np.array(query.get_labels())
-        ones_idx = np.where(labels == 1)
-        non_ones_idx = np.where(labels != 1)
+        ones_idx = np.where(labels == 1)[0]
+        non_ones_idx = np.where(labels != 1)[0]
         for i in ones_idx:
             for j in non_ones_idx:
-                S[i, j] = 1
+                try:
+                    S[i, j] = 1
+                except ValueError:
+                    raise ValueError('%s, %s, %s, %s' % (query.get_qid(),i, j, num_labels))
         S_dict[query.get_qid()] = S
 
     return S_dict
@@ -303,10 +309,16 @@ def experiment(n_epochs, measure_type, num_features, num_folds):
     #test_queries = query.load_queries(os.path.normpath('./HP2003/Fold%d/test.txt' % fold), num_features)
 
 ## Run
+if __name__ == '__main__':
+    n_epochs = 500
+    measure_type = POINTWISE
+    num_features = 64
+    num_folds = 2
 
-n_epochs = 5
-measure_type = POINTWISE
-num_features = 64
-num_folds = 1
+    res = experiment(n_epochs, measure_type, num_features, num_folds)
+    ndcgs = [[rr['val_mndcg'] for rr in res[i][:-1]] for i in res]  # fold 1
 
-res = experiment(n_epochs, measure_type, num_features, num_folds)
+    df = pd.DataFrame(ndcgs, index=['Fold%d' % d for d in range(1, num_folds + 1)]).T
+    plt.plot(df)
+    plt.legend(df.columns)
+    plt.show()
