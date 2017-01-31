@@ -30,22 +30,6 @@ LISTWISE = 'listwise'
 # Cut-off level for NDCG metric
 ndcg_k = 10
 
-
-def naive_dcg(labels, k):
-    gains = [(2 ** labels[i] - 1) / (np.log2(1 + (i + 1))) for i in
-             range(len(labels[:k]))]  # Discounted gain at each rank
-    return sum(gains)  # cumulated gains
-
-
-# Normalized Discounted Cumulative Gain at k-th rank
-# Performs DCG@k and normalizes using the best possible ranking. Results in a metric within [0,1]
-def naive_ndcg(ranking, k, r):
-    if r == 0:
-        #raise ZeroDivisionError("No relevant documents for given query. NDCG can not be computed.")
-        return 0
-    return naive_dcg(ranking, k) / sum([1.0/np.log2(i+1) for i in range(1,r+1)])
-
-
 # Calculates the best NDCG@k for query with r relevant documents and binary relevance labels
 def best_ndcg(r, k):
     if r == 0:
@@ -56,7 +40,7 @@ def best_ndcg(r, k):
 
 # Store the logarithmic discount and normalization factor lists for faster NDCG computation
 disc_list, norm_list = best_ndcg(1000,1000)
-disc_list = disc_list#.reshape((-1,1))
+disc_list = disc_list
 
 # Calculates the NDCG@k for a rank with binary relevance labels assuming a query with r relevant documents
 def ndcg(rank, k, r = 1):
@@ -206,21 +190,11 @@ class LambdaRankHW:
     def lambda_function(self, labels, scores, S):
         lambda_vec = np.zeros((len(labels),1), dtype=np.float32)
         order = np.argsort(-scores)
+
         for ((w,l),_) in S.items():
             lambda_wl = - expit( scores[l] - scores[w])
             if self.measure_type == LISTWISE:
                 delta_val = np.abs(delta_ndcdg(np.where(order == w)[0][0], np.where(order == l)[0][0], w, l, labels))
-
-                # Sanity check
-                # r1 = np.array(labels)[order]
-                # r2 = np.array(labels)[order]
-                # aux = r2[np.where(order == w)[0][0]]
-                # r2[np.where(order == w)[0][0]] = r2[np.where(order == l)[0][0]]
-                # r2[np.where(order == l)[0][0]] = aux
-                # diff = np.abs(ndcg(r2, len(labels), sum(labels)) - ndcg(r1,len(labels),sum(labels)))
-                # # if (diff != delta_val):
-                #     print(delta_val, diff)
-
                 lambda_wl *= delta_val
             lambda_vec[w,0] += lambda_wl
             lambda_vec[l,0] -= lambda_wl
@@ -353,10 +327,10 @@ def experiment(n_epochs, measure_type, num_features, num_folds):
 
 ## Run
 if __name__ == '__main__':
-    n_epochs = 30
+    n_epochs = 2
     measure_type = LISTWISE
     num_features = 64
-    num_folds = 1
+    num_folds = 2
 
     res = experiment(n_epochs, measure_type, num_features, num_folds)
     ndcgs = [[rr['val_mndcg'] for rr in res[i][:-1]] for i in res]  # fold 1
