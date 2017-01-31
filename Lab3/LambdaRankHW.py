@@ -53,7 +53,7 @@ def delta_ndcdg(i, j, id_i, id_j, labels):
 
 # TODO: Implement the lambda loss function
 def lambda_loss(output, lambdas):
-    return lambdas.dot(output.reshape((-1,1)))
+    return T.dot(lambdas,output.T)
 
 class LambdaRankHW:
 
@@ -65,7 +65,6 @@ class LambdaRankHW:
         self.output_layer = self.build_model(feature_count,1,BATCH_SIZE)
         self.iter_funcs = self.create_functions(self.output_layer)
 
-
     # train_queries are what load_queries returns - implemented in query.py
     def train_with_queries(self, train_queries, num_epochs, val_queries, S):
         res = []
@@ -73,7 +72,7 @@ class LambdaRankHW:
             now = time.time()
             for epoch in self.train(train_queries, val_queries, S):
                 res.append(epoch)
-                if epoch['number'] % 50 == 0:
+                if epoch['number'] % 50 == 0 or epoch['number'] == 1:
                     print("Epoch {} of {} took {:.3f}s".format(
                     epoch['number'], num_epochs, time.time() - now))
                     print("training loss:\t\t{:.6f}".format(epoch['train_loss']))
@@ -291,11 +290,12 @@ def experiment(n_epochs, measure_type, num_features, num_folds):
 
     store_res = {}
     for fold in range(1,num_folds + 1):
+
         # Load queries from the corresponding fold
-        print('\nLoading train queries')
+        print('Loading train queries')
         train_queries = query.load_queries(os.path.normpath('./HP2003/Fold%d/train.txt' % fold), num_features)
 
-        print('\nLoading val queries')
+        print('Loading val queries')
         val_queries = query.load_queries(os.path.normpath('./HP2003/Fold%d/vali.txt' % fold), num_features)
 
         print('Creating the S Matrix')
@@ -318,7 +318,7 @@ def experiment(n_epochs, measure_type, num_features, num_folds):
 
 ## Run
 if __name__ == '__main__':
-    n_epochs = 200
+    n_epochs = 1
     measure_type = LISTWISE
     num_features = 64
     num_folds = 2
