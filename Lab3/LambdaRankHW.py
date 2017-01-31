@@ -302,6 +302,17 @@ class LambdaRankHW:
             }
 
 
+def report_test_mndcg(ranker, test_queries):
+   # Calculate NDCG on training set
+    test_ndcgs= []
+    for q in test_queries:
+        labels = np.array(q.get_labels())
+        q_scores = -self.score(q).flatten()
+        sort_idx = np.argsort(q_scores)
+        rank = labels[sort_idx]
+        test_ndcgs.append(ndcg(rank, ndcg_k, int(np.sum(labels))))
+    return np.mean(train_ndcgs)
+
 def create_S_matrix(queries):
     S_dict = {}
 
