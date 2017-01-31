@@ -31,22 +31,6 @@ LISTWISE = 'listwise'
 # Cut-off level for NDCG metric
 ndcg_k = 10
 
-
-def naive_dcg(labels, k):
-    gains = [(2 ** labels[i] - 1) / (np.log2(1 + (i + 1))) for i in
-             range(len(labels[:k]))]  # Discounted gain at each rank
-    return sum(gains)  # cumulated gains
-
-
-# Normalized Discounted Cumulative Gain at k-th rank
-# Performs DCG@k and normalizes using the best possible ranking. Results in a metric within [0,1]
-def naive_ndcg(ranking, k, r):
-    if r == 0:
-        #raise ZeroDivisionError("No relevant documents for given query. NDCG can not be computed.")
-        return 0
-    return naive_dcg(ranking, k) / sum([1.0/np.log2(i+1) for i in range(1,r+1)])
-
-
 # Calculates the best NDCG@k for query with r relevant documents and binary relevance labels
 def best_ndcg(r, k):
     if r == 0:
@@ -57,7 +41,7 @@ def best_ndcg(r, k):
 
 # Store the logarithmic discount and normalization factor lists for faster NDCG computation
 disc_list, norm_list = best_ndcg(1000,1000)
-disc_list = disc_list#.reshape((-1,1))
+disc_list = disc_list
 
 # Calculates the NDCG@k for a rank with binary relevance labels assuming a query with r relevant documents
 def ndcg(rank, k, r = 1):
@@ -223,7 +207,6 @@ class LambdaRankHW:
             self.lambda_counter += 1
             if self.measure_type == LISTWISE:
                 lambda_wl *= np.abs(delta_ndcdg(rank_dict[w], rank_dict[l], w, l, labels, num_rel_docs))
-
             lambda_vec[w,0] += lambda_wl
             lambda_vec[l,0] -= lambda_wl
         return lambda_vec
@@ -369,6 +352,7 @@ def experiment(n_epochs, measure_type, num_features, num_folds):
 
 ## Run
 if __name__ == '__main__':
+
     n_epochs = 200
     measure_type = POINTWISE
     num_features = 64
