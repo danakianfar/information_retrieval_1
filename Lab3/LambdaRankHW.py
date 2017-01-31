@@ -91,7 +91,6 @@ class LambdaRankHW:
         scores = self.iter_funcs['out'](feature_vectors)
         return scores
 
-
     def build_model(self,input_dim, output_dim,
                     batch_size=BATCH_SIZE):
         """Create a symbolic representation of a neural network with `intput_dim`
@@ -232,23 +231,22 @@ class LambdaRankHW:
 
             # Calculates training loss
             batch_train_losses = []
-            train_ndcgs = []
             for index in range(len(queries)):
                 random_index = random_batch[index]
                 labels = queries[random_index].get_labels()
-
                 batch_train_loss = self.train_once(X_trains[random_index],queries[random_index],labels, S)
                 batch_train_losses.append(batch_train_loss)
-
-                # Calculate NDCG on training set
-                # q_scores = -self.score(queries[random_index]).flatten()
-                # sort_idx = np.argsort(q_scores)
-                # rank = labels[sort_idx]
-                # train_ndcgs.append(ndcg(rank, ndcg_k, int(np.sum(labels))))
-
             avg_train_loss = np.mean(batch_train_losses)
-            train_mndcg = 0 #np.mean(train_ndcgs)
 
+            # Calculate NDCG on training set
+            train_ndcgs = []
+            queries = list(val_queries.values())
+            for q in queries:
+                q_scores = -self.score(q).flatten()
+                sort_idx = np.argsort(q_scores)
+                rank = labels[sort_idx]
+                train_ndcgs.append(ndcg(rank, ndcg_k, int(np.sum(labels))))
+            train_mndcg = np.mean(train_ndcgs)
 
             # Calculates mNDCG on validation set
             val_ndcgs = []
@@ -259,7 +257,6 @@ class LambdaRankHW:
                 sort_idx = np.argsort(q_scores)
                 rank = labels[sort_idx]
                 val_ndcgs.append(ndcg(rank, ndcg_k, int(np.sum(labels))))
-
             val_mndcg = np.mean(val_ndcgs)
 
             # Return statistics for current epoch
