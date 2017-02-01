@@ -84,7 +84,7 @@ class LambdaRankHW:
             now = time.time()
             for epoch in self.train(train_queries, val_queries, S):
                 res.append(epoch)
-                if epoch['number'] % 100 == 0 or epoch['number'] == 1:
+                if epoch['number'] % 10 == 0 or epoch['number'] == 1:
                     print("Epoch {} of {} took {:.3f}s".format(
                     epoch['number'], num_epochs, time.time() - now))
                     print("training loss:\t\t{:.6f}".format(epoch['train_loss']))
