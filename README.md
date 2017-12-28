@@ -4,7 +4,7 @@
 
 ## Description
 
-Code for the [Information Retrieval](http://coursecatalogue.uva.nl/xmlpages/page/2016-2017-en/search-course/course/25718) course  MSc Artificial Intelligence @ UvA.
+Code for the [Information Retrieval](http://coursecatalogue.uva.nl/xmlpages/page/2016-2017-en/search-course/course/25718) course of the MSc in Artificial Intelligence at the University of Amsterdam.
 
 ### Lab 1 - Evaluation Measures, Interleaving and Click Models
 
