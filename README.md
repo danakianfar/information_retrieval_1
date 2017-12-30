@@ -56,5 +56,5 @@ jupyter notebook $notebook_name$.ipynb
 Copyright © 2017 Dana Kianfar and Jose Gallego.
 
 <p align="justify">
-This project is distributed under the <a href="LICENSE">MIT license</a>. This was developed as part of the Information Retrieval course taught by Evangelos Kanoulas at the University of Amsterdam. Please follow the <a href="http://student.uva.nl/en/az/content/plagiarism-and-fraud/plagiarism-and-fraud.html">UvA regulations governing Fraud and Plagiarism</a> in case you are a student.
+This project is distributed under the <a href="LICENSE">MIT license</a>. This was developed as part of the Information Retrieval course taught by Evangelos Kanoulas at the University of Amsterdam. Please review the <a href="http://student.uva.nl/en/content/az/plagiarism-and-fraud/plagiarism-and-fraud.html">UvA regulations governing Fraud and Plagiarism</a> in case you are a student at the UvA.
 </p>
