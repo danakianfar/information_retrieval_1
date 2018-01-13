@@ -27,7 +27,7 @@ In a typical IR task we are interested in finding a (usually ranked) list of res
 We implement and compare the performance of several approaches to the Learning to Rank (LTR) problem. We received an implementation of a pointwise method based on squared-loss minimization and implemented RankNet (pairwise) and LambdaNet (listwise) algorithms.
 </p>
 
-- [Assignment and Solutions](Lab3/11391014-11390689-hw2-report.pdf)
+- [Assignment and Solutions](Lab3/11391014-11390689-hw3-report.pdf)
 
 
 ## Testing
